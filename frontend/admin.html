@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Đơn đặt bàn</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .navbar {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar button {
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .navbar button:hover {
+            background-color: #0056b3;
+        }
+
+        label {
+            margin-right: 10px;
+        }
+
+        input[type="date"] {
+            margin-right: 10px;
+        }
+
+        ul.taph {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+
+        ul.taph li {
+            background-color: #f8f9fa;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            border: 1px solid #ddd;
+        }
+
+        .status-pending {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        .status-confirmed {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .action-buttons button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .confirm-btn {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .cancel-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .confirm-btn:hover {
+            background-color: #218838;
+        }
+
+        .cancel-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>Quản lý Đơn đặt bàn</h1>
+        <button onclick="logout()">Đăng xuất</button>
+    </div>
+
+    <div>
+        <label for="filter-date">Chọn ngày:</label>
+        <input type="date" id="filter-date">
+        <label for="filter-status">Trạng thái:</label>
+        <select id="filter-status">
+            <option value="">Tất cả</option>
+            <option value="pending">Chờ xác nhận</option>
+            <option value="confirmed">Đã xác nhận</option>
+        </select>
+        <button id="filter-button">Lọc</button>
+    </div>
+
+    <ul class="taph"></ul>
+
+    <script>
+        const taph = document.querySelector(".taph");
+        const api = "http://localhost:3000/menu";
+        const api1="http://localhost:3000";
+        let currentFilter = "";
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('http://localhost:3000/check-auth', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                if (!response.ok) {
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                window.location.href = 'login.html';
+            }
+        }
+
+        async function fetchMenu(date, status) {
+            try {
+                let url = `${api}`;
+
+                // Kiểm tra nếu có 'date' và 'status' thì mới thêm vào URL
+                let params = [];
+                if (date) params.push(`date=${date}`);
+                if (status) params.push(`status=${status}`);
+
+                // Nếu có tham số, nối chúng vào URL với dấu '?'
+                if (params.length > 0) {
+                    url += `?${params.join('&')}`;
+                }
+
+                currentFilter = status; // Lưu trạng thái filter hiện tại
+
+                const response = await fetch(url);
+                const menu = await response.json();
+
+                if (response.ok) {
+                    displayMenu(menu);
+                } else {
+                    alert("Không thể tải danh sách menu.");
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi tải danh sách menu.');
+            }
+        }
+
+
+        function displayMenu(menu) {
+            taph.innerHTML = '';
+
+            if (menu.length === 0) {
+                taph.innerHTML = `<li>Không có đơn đặt bàn.</li>`;
+                return;
+            }
+
+            menu.forEach(food => {
+                const li = document.createElement('li');
+                const actionButtons = document.createElement('div');
+                actionButtons.className = 'action-buttons';
+
+                // Chỉ hiển thị nút khi có filter trạng thái
+                if (currentFilter === 'pending') {
+                    actionButtons.innerHTML = `
+                        <button class="confirm-btn"">Xác nhận đơn</button>
+                        <button class="cancel-btn"">Hủy đơn</button>
+                    `;
+                } else if (currentFilter === 'confirmed') {
+                    actionButtons.innerHTML = `
+                        <button class="cancel-btn"">Hủy đơn</button>
+                    `;
+                }
+
+                li.innerHTML = `
+                    <div>
+                        <strong>Họ và tên:</strong> ${food.name} <br>
+                        <strong>Số điện thoại:</strong> ${food.phone} <br>
+                        <strong>Email:</strong> ${food.email} <br>
+                        <strong>Ngày đặt:</strong> ${food.booking_date} <br>
+                        <strong>Giờ đặt:</strong> ${food.booking_time} <br>
+                        <strong>Số lượng khách:</strong> ${food.guests} <br>
+                        <strong>Ghi chú:</strong> ${food.notes || 'Không có ghi chú'} <br>
+                        <strong>Trạng thái:</strong> 
+                        <span class="${food.status === 'pending' ? 'status-pending' : 'status-confirmed'}">
+                            ${food.status === 'pending' ? 'Chờ xác nhận' : 'Đã xác nhận'}
+                        </span>
+                    </div>
+                `;
+                li.appendChild(actionButtons);
+                li.setAttribute('data-id', food._id);
+                taph.appendChild(li);
+            });
+            document.querySelectorAll(".cancel-btn").forEach(function(e){
+                e.onclick=function(){
+                    const id = this.parentElement.parentElement.dataset.id;
+                    deleteBooking(id);
+                }
+            })
+            document.querySelectorAll(".confirm-btn").forEach(function(e){
+                e.onclick=function(){
+                    const id = this.parentElement.parentElement.dataset.id;
+                    updateBooking(id, this.parentElement.parentElement);
+                }
+            })
+        }
+        
+        function updateBooking(id, element) {
+            fetch(`${api1}/${id}`, {
+                method: "PUT",
+                headers: {
+                'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (response.ok) {
+                element.remove();
+                alert('Cập nhật thành công');
+                } else {
+                return response.json().then(data => {
+                    console.error(data.message);
+                });
+                }
+            })
+            .catch(error => {
+                console.error('Lỗi khi gọi API:', error);
+            });
+            }
+
+        function deleteBooking(id) {
+            fetch(`${api1}/${id}/force`, {
+                method: 'DELETE',
+                headers: {
+                'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (response.ok) {
+                // Xóa phần tử từ giao diện
+                //element.remove();
+                const date = document.querySelector("#filter-date").value;
+                const status = document.querySelector("#filter-status").value;
+                
+                alert('Xóa Đơn thành công');
+                fetchMenu(date, status);
+                } else {
+                return response.json().then(data => {
+                    console.error(data.message);
+                });
+                }
+            })
+            .catch(error => {
+                console.error('Lỗi khi gọi API:', error);
+            });
+            }
+
+        document.querySelector("#filter-button").onclick = () => {
+            const date = document.querySelector("#filter-date").value;
+            const status = document.querySelector("#filter-status").value;
+            fetchMenu(date, status);
+        };
+
+        async function logout() {
+            try {
+                const response = await fetch('http://localhost:3000/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        checkAuth();
+        fetchMenu(); // Ban đầu tải tất cả đơn mà không có filter
+    </script>
+</body>
+</html>

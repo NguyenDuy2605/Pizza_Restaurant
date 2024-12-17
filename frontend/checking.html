@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tra cứu thông tin đặt bàn</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .result-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .result-label {
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .result-value {
+            color: #333;
+        }
+        .error {
+            color: #dc3545;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .no-result {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tra cứu đặt bàn</h1>
+        <div class="search-box">
+            <input type="text" id="phoneNumber" placeholder="Nhập số điện thoại" />
+            <button onclick="searchReservation()">Tra cứu</button>
+        </div>
+        <div id="result" class="result" style="display: none;"></div>
+        <p id="error" class="error"></p>
+    </div>
+
+    <script>
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        }
+
+        function formatTime(timeString) {
+            return timeString.substring(0, 5);
+        }
+
+        function createResultItem(label, value) {
+            return `
+                <div class="result-item">
+                    <div class="result-label">${label}:</div>
+                    <div class="result-value">${value}</div>
+                </div>
+            `;
+        }
+
+        function searchReservation() {
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+            
+            if (!phoneNumber) {
+                error.textContent = 'Vui lòng nhập số điện thoại';
+                result.style.display = 'none';
+                return;
+            }
+            
+            error.textContent = '';
+            
+            fetch('http://localhost:3000/menu')
+                .then(response => response.json())
+                .then(data => {
+                    const reservation = data.find(r => r.phone === phoneNumber && r.status !== "pending");
+                    result.style.display = 'block';
+                    
+                    if (reservation) {
+                        result.innerHTML = `
+                            ${createResultItem('Họ và tên', reservation.name)}
+                            ${createResultItem('Số điện thoại', reservation.phone)}
+                            ${createResultItem('Email', reservation.email)}
+                            ${createResultItem('Ngày đặt', formatDate(reservation.booking_date))}
+                            ${createResultItem('Giờ đặt', formatTime(reservation.booking_time))}
+                            ${createResultItem('Số khách', reservation.guests)}
+                            ${reservation.notes ? createResultItem('Ghi chú', reservation.notes) : ''}
+                        `;
+                    } else {
+                        result.innerHTML = '<div class="no-result">Đơn đặt bàn của bạn đang chờ xử lý</div>';
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    error.textContent = 'Đã có lỗi xảy ra khi tra cứu. Vui lòng thử lại sau.';
+                });
+        }
+
+        // Thêm sự kiện Enter cho input
+        document.getElementById('phoneNumber').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchReservation();
+            }
+        });
+    </script>
+</body>
+</html>
